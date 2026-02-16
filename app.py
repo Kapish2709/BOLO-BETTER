@@ -562,6 +562,7 @@ Author: [author name]"""
 # ── RESULTS PANEL ──
 with col2:
     if st.session_state.current_result:
+        import re
         r = st.session_state.current_result
         s = r["suggestions"]
 
@@ -569,64 +570,56 @@ with col2:
         st.markdown("<div class='section-label'>What you said in Hindi (translated)</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='translated-box'>\"{s.get('what_you_said', r['translated'])}\"</div>", unsafe_allow_html=True)
 
-        # 4 Suggestion Cards — with clickable words
-        st.markdown("<div class='section-label'>4 Ways to Say It — <span style='color:#f4a94e'>click any word to look it up ↓</span></div>", unsafe_allow_html=True)
+        # 4 Suggestion Cards — clean readable text
+        st.markdown("<div class='section-label'>4 Ways to Say It</div>", unsafe_allow_html=True)
 
-        # Render each card with its label + clickable words
-        card_configs = [
-            ("casual",       "Casual",       "#6ec6a0"),
-            ("professional", "Professional", "#6aabf0"),
-            ("formal",       "Formal",       "#b89af0"),
-            ("pro_speak",    "✦ Pro Speak",  "#f4a94e"),
+        cards_html = ""
+        card_defs = [
+            ("casual",       "Casual",       "#6ec6a0", False),
+            ("professional", "Professional", "#6aabf0", False),
+            ("formal",       "Formal",       "#b89af0", False),
+            ("pro_speak",    "&#10022; Pro Speak",  "#f4a94e", True),
         ]
-
-        for key, label, color in card_configs:
+        for key, label, color, is_ps in card_defs:
             text = s.get(key, "")
             if not text:
                 continue
-            is_prospeak = key == "pro_speak"
-            card_bg = "linear-gradient(135deg, #1c1c22 0%, #1e1a14 100%)" if is_prospeak else "#1c1c22"
-            border = f"1px solid rgba(244,169,78,0.25)" if is_prospeak else "1px solid rgba(255,255,255,0.07)"
+            card_bg = "linear-gradient(135deg,#1c1c22 0%,#1e1a14 100%)" if is_ps else "#1c1c22"
+            border  = "1px solid rgba(244,169,78,0.25)" if is_ps else "1px solid rgba(255,255,255,0.07)"
+            txt_col = "#f4a94e" if is_ps else "#f0ede8"
+            italic  = "font-style:italic;" if is_ps else ""
+            cards_html += f"""<div style='background:{card_bg};border:{border};border-radius:12px;padding:1rem 1.2rem;margin-bottom:0.75rem;'>
+  <div style='color:{color};font-family:JetBrains Mono,monospace;font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem;'>
+    <span style='width:6px;height:6px;border-radius:50%;background:{color};display:inline-block'></span>{label}
+  </div>
+  <div style='color:{txt_col};font-family:DM Sans,sans-serif;font-size:0.95rem;line-height:1.7;{italic}'>{text}</div>
+</div>"""
+        st.markdown(cards_html, unsafe_allow_html=True)
 
-            st.markdown(f"""
-            <div style='background:{card_bg}; border:{border}; border-radius:12px; padding:0.9rem 1rem; margin-bottom:0.6rem;'>
-              <div class='card-tag' style='color:{color}; font-family: JetBrains Mono, monospace; font-size:0.58rem; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.4rem;'>
-                <span style='width:6px;height:6px;border-radius:50%;background:{color};display:inline-block'></span>{label}
-              </div>
-            """, unsafe_allow_html=True)
+        # ── WORD LOOKUP BOX ──
+        st.markdown("""<div style='margin:1.2rem 0 0.4rem;font-family:JetBrains Mono,monospace;font-size:0.65rem;
+letter-spacing:0.18em;text-transform:uppercase;color:#4a4a5a;'>
+&#128218; Vocabulary — type any word from above to look it up</div>""", unsafe_allow_html=True)
 
-            # Render each word as a Streamlit button
-            words = text.split()
-            import re
-            btn_cols = st.columns(len(words) if len(words) <= 10 else 10)
-            for i, word in enumerate(words):
-                clean_word = re.sub(r"[^\w\s'-]", "", word)
-                col_idx = i % 10
-                with btn_cols[col_idx]:
-                    if st.button(
-                        word,
-                        key=f"word_{key}_{i}_{r['id'][:8]}",
-                        help=f"Click to look up '{clean_word}'",
-                        use_container_width=False
-                    ):
-                        st.session_state.clicked_word = clean_word
-                        st.session_state.vocab_display = "clicked"
-                        with st.spinner(f"Looking up '{clean_word}'..."):
-                            st.session_state.clicked_word_data = lookup_word(clean_word)
-                        st.rerun()
+        wc1, wc2 = st.columns([3, 1])
+        with wc1:
+            word_input = st.text_input("wordlookup", placeholder="e.g. ironing out, glitch, assess...",
+                                       label_visibility="collapsed", key="word_input_box")
+        with wc2:
+            lookup_btn = st.button("Look up \u2192", use_container_width=True, key="lookup_btn")
 
-            st.markdown("</div>", unsafe_allow_html=True)
+        if lookup_btn and word_input.strip():
+            clean_w = word_input.strip()
+            st.session_state.clicked_word = clean_w
+            st.session_state.vocab_display = "clicked"
+            with st.spinner(f"Looking up '{clean_w}'..."):
+                st.session_state.clicked_word_data = lookup_word(clean_w)
+            st.rerun()
 
-        # Tip
-        if s.get("tip"):
-            st.markdown(f"<div class='tip-box'>💡 {s['tip']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='tip-box' style='margin-top:0.8rem'>💡 {s['tip']}</div>", unsafe_allow_html=True)
 
-        # Audio players
-        if r.get("tts_audio"):
-            st.markdown("<div class='section-label' style='margin-top:1rem'>🔊 Professional version</div>", unsafe_allow_html=True)
-            st.audio(base64.b64decode(r["tts_audio"]), format="audio/wav")
-
-        st.markdown("<div class='section-label' style='margin-top:0.8rem'>▶ Play any version</div>", unsafe_allow_html=True)
+        # ── AUDIO PLAYERS ──
+        st.markdown("<div class='section-label' style='margin-top:1.2rem'>🔊 Hear any version</div>", unsafe_allow_html=True)
         pc1, pc2, pc3, pc4 = st.columns(4)
 
         def play_version(text, label):
@@ -635,104 +628,109 @@ with col2:
                 st.session_state[f"play_{label}"] = audio
 
         with pc1:
-            if st.button("Casual", use_container_width=True):
-                with st.spinner(""): play_version(s.get("casual", ""), "casual")
+            if st.button("▶ Casual", use_container_width=True, key="play_btn_casual"):
+                with st.spinner(""):
+                    play_version(s.get("casual", ""), "casual")
             if st.session_state.get("play_casual"):
                 st.audio(base64.b64decode(st.session_state["play_casual"]), format="audio/wav")
+
         with pc2:
-            if st.button("Pro", use_container_width=True):
-                with st.spinner(""): play_version(s.get("professional", ""), "professional")
+            if st.button("▶ Pro", use_container_width=True, key="play_btn_professional"):
+                with st.spinner(""):
+                    play_version(s.get("professional", ""), "professional")
             if st.session_state.get("play_professional"):
                 st.audio(base64.b64decode(st.session_state["play_professional"]), format="audio/wav")
+
         with pc3:
-            if st.button("Formal", use_container_width=True):
-                with st.spinner(""): play_version(s.get("formal", ""), "formal")
+            if st.button("▶ Formal", use_container_width=True, key="play_btn_formal"):
+                with st.spinner(""):
+                    play_version(s.get("formal", ""), "formal")
             if st.session_state.get("play_formal"):
                 st.audio(base64.b64decode(st.session_state["play_formal"]), format="audio/wav")
+
         with pc4:
-            if st.button("✦ Pro Speak", use_container_width=True):
-                with st.spinner(""): play_version(s.get("pro_speak", ""), "pro_speak")
+            if st.button("▶ Pro Speak", use_container_width=True, key="play_btn_prospeak"):
+                with st.spinner(""):
+                    play_version(s.get("pro_speak", ""), "pro_speak")
             if st.session_state.get("play_pro_speak"):
                 st.audio(base64.b64decode(st.session_state["play_pro_speak"]), format="audio/wav")
 
-        # ── VOCABULARY SECTION — Dynamic ──
+        # ── VOCABULARY — only shows when a word is clicked ──
         st.markdown("<div style='margin-top:1.5rem'></div>", unsafe_allow_html=True)
 
-        # Show clicked word lookup OR auto vocab
         if st.session_state.vocab_display == "clicked" and st.session_state.clicked_word_data:
             v = st.session_state.clicked_word_data
             st.markdown(f"""
-            <div class='section-label'>
-              📚 Word Lookup — 
+            <div class='section-label'>📚 Word Lookup —
               <span style='color:#f4a94e'>"{st.session_state.clicked_word}"</span>
-              <span style='color:#4a4a5a; margin-left:0.5rem'>(click any other word to update)</span>
+              <span style='color:#4a4a5a; margin-left:0.4rem'>click any other word to update</span>
             </div>
             """, unsafe_allow_html=True)
             st.markdown(f"""
-            <div style='background:#141417; border:1px solid rgba(244,169,78,0.2); border-radius:12px; padding:1.2rem 1.4rem;'>
-              <div style='font-family: Playfair Display, serif; font-size:1.3rem; color:#f4a94e; font-weight:700; margin-bottom:0.4rem'>
-                {v.get('word', '')}
+            <div style='background:#141417;border:1px solid rgba(244,169,78,0.2);
+                        border-radius:12px;padding:1.2rem 1.4rem;'>
+              <div style='font-family:Playfair Display,serif;font-size:1.3rem;
+                          color:#f4a94e;font-weight:700;margin-bottom:0.4rem'>
+                {v.get('word','')}
               </div>
-              <div style='font-size:0.85rem; color:#f0ede8; margin-bottom:0.8rem; font-family: DM Sans, sans-serif;'>
-                {v.get('meaning', '')}
+              <div style='font-size:0.88rem;color:#f0ede8;margin-bottom:0.9rem;
+                          font-family:DM Sans,sans-serif;line-height:1.6'>
+                {v.get('meaning','')}
               </div>
-              <div style='display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.8rem;'>
+              <div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.8rem'>
                 <div>
-                  <div style='font-family:JetBrains Mono,monospace; font-size:0.55rem; color:#4a4a5a; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.3rem'>Synonyms</div>
-                  <div style='font-size:0.82rem; color:#6ec6a0; font-family: DM Sans, sans-serif;'>{v.get('synonyms', '')}</div>
+                  <div style='font-family:JetBrains Mono,monospace;font-size:0.55rem;
+                              color:#4a4a5a;letter-spacing:0.1em;text-transform:uppercase;
+                              margin-bottom:0.3rem'>Synonyms</div>
+                  <div style='font-size:0.82rem;color:#6ec6a0;
+                              font-family:DM Sans,sans-serif'>{v.get('synonyms','')}</div>
                 </div>
                 <div>
-                  <div style='font-family:JetBrains Mono,monospace; font-size:0.55rem; color:#4a4a5a; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.3rem'>Antonym</div>
-                  <div style='font-size:0.82rem; color:#f06a6a; font-family: DM Sans, sans-serif;'>{v.get('antonym', '')}</div>
+                  <div style='font-family:JetBrains Mono,monospace;font-size:0.55rem;
+                              color:#4a4a5a;letter-spacing:0.1em;text-transform:uppercase;
+                              margin-bottom:0.3rem'>Antonym</div>
+                  <div style='font-size:0.82rem;color:#f06a6a;
+                              font-family:DM Sans,sans-serif'>{v.get('antonym','')}</div>
                 </div>
                 <div>
-                  <div style='font-family:JetBrains Mono,monospace; font-size:0.55rem; color:#4a4a5a; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.3rem'>Example</div>
-                  <div style='font-size:0.82rem; color:#7a7a8a; font-style:italic; font-family: DM Sans, sans-serif;'>{v.get('example', '')}</div>
+                  <div style='font-family:JetBrains Mono,monospace;font-size:0.55rem;
+                              color:#4a4a5a;letter-spacing:0.1em;text-transform:uppercase;
+                              margin-bottom:0.3rem'>Example</div>
+                  <div style='font-size:0.82rem;color:#7a7a8a;font-style:italic;
+                              font-family:DM Sans,sans-serif'>{v.get('example','')}</div>
                 </div>
               </div>
             </div>
             """, unsafe_allow_html=True)
-
-            # Button to go back to auto vocab
-            if st.button("← Show auto-selected words", use_container_width=False):
-                st.session_state.vocab_display = "auto"
-                st.rerun()
-
         else:
-            # Auto vocab
-            if s.get("vocab"):
-                st.markdown("<div class='section-label'>📚 Vocabulary Builder — 3 Auto-Selected Words</div>", unsafe_allow_html=True)
-                vocab_html = "<div class='vocab-grid'>"
-                for v in s["vocab"][:3]:
-                    vocab_html += f"""
-                    <div class='vocab-card'>
-                      <div class='vocab-word'>{v.get('word', '')}</div>
-                      <div class='vocab-meaning'>{v.get('meaning', '')}</div>
-                      <div class='vocab-syn'>↑ {v.get('synonyms', '')}</div>
-                      <div class='vocab-ant'>↓ {v.get('antonym', '')}</div>
-                    </div>"""
-                vocab_html += "</div>"
-                st.markdown(vocab_html, unsafe_allow_html=True)
+            st.markdown("""
+            <div style='background:#141417;border:1px dashed rgba(255,255,255,0.06);
+                        border-radius:12px;padding:1.2rem 1.4rem;text-align:center'>
+              <div style='font-size:0.82rem;color:#4a4a5a;font-family:DM Sans,sans-serif'>
+                📚 <span style='color:#f4a94e'>Click any word</span> in the suggestions above to instantly see its meaning, synonyms, antonym and an example sentence.
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         # ── MOTIVATING QUOTE ──
         if s.get("quote"):
             st.markdown(f"""
-            <div class='quote-box'>
+            <div class='quote-box' style='margin-top:1rem'>
               <div class='quote-text'>"{s['quote']}"</div>
-              <div class='quote-author'>— {s.get('author', '')}</div>
+              <div class='quote-author'>— {s.get('author','')}</div>
             </div>
             """, unsafe_allow_html=True)
 
     else:
         st.markdown("""
-        <div style='display:flex; flex-direction:column; align-items:center; justify-content:center;
-                    height:340px; background:#141417; border: 1px solid rgba(255,255,255,0.07);
-                    border-radius:16px; text-align:center; padding:2rem;'>
-          <div style='font-size:3rem; margin-bottom:1rem'>🎙️</div>
-          <div style='font-family: DM Sans, sans-serif; font-size:0.9rem; color:#4a4a5a; line-height:1.9'>
+        <div style='display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    height:340px;background:#141417;border:1px solid rgba(255,255,255,0.07);
+                    border-radius:16px;text-align:center;padding:2rem'>
+          <div style='font-size:3rem;margin-bottom:1rem'>🎙️</div>
+          <div style='font-family:DM Sans,sans-serif;font-size:0.9rem;color:#4a4a5a;line-height:1.9'>
             Record or upload a Hindi audio clip<br>
             and your results will appear here.<br><br>
-            <span style='color:#f4a94e; font-size:0.8rem'>4 versions · click any word · 3 vocab words · 1 quote</span>
+            <span style='color:#f4a94e;font-size:0.8rem'>4 versions · click any word to look it up · 1 quote</span>
           </div>
         </div>
         """, unsafe_allow_html=True)
