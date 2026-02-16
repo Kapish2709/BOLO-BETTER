@@ -185,10 +185,10 @@ if "api_keys_set" not in st.session_state:
 # so users never have to type them manually
 try:
     _sarvam_secret = st.secrets.get("SARVAM_API_KEY", "")
-    _openai_secret = st.secrets.get("OPENAI_API_KEY", "")
-    if _sarvam_secret and _openai_secret:
+    _groq_secret = st.secrets.get("GROQ_API_KEY", "")
+    if _sarvam_secret and _groq_secret:
         st.session_state.sarvam_key = _sarvam_secret
-        st.session_state.openai_key = _openai_secret
+        st.session_state.groq_key = _groq_secret
         st.session_state.api_keys_set = True
         st.session_state.keys_from_secrets = True
 except Exception:
@@ -216,11 +216,11 @@ with st.sidebar:
     else:
         st.markdown("#### 🔑 API Keys")
         sarvam_key = st.text_input("Sarvam AI Key", type="password", placeholder="sk_...", help="Get from dashboard.sarvam.ai")
-        openai_key = st.text_input("OpenAI Key", type="password", placeholder="sk-proj-...", help="Get from platform.openai.com/api-keys")
+        groq_key = st.text_input("Groq Key (Free)", type="password", placeholder="gsk_...", help="Get free from console.groq.com")
 
-        if sarvam_key and openai_key:
+        if sarvam_key and groq_key:
             st.session_state.sarvam_key = sarvam_key
-            st.session_state.openai_key = openai_key
+            st.session_state.groq_key = groq_key
             st.session_state.api_keys_set = True
             st.success("Keys saved ✓")
         else:
@@ -495,8 +495,11 @@ with col1:
 
             with st.spinner("Getting English suggestions from AI..."):
                 try:
-                    # Step 2: OpenAI suggestions
-                    headers_oai = {"Authorization": f"Bearer {st.session_state.openai_key}", "Content-Type": "application/json"}
+                    # Step 2: Groq suggestions (FREE - uses llama3)
+                    headers_groq = {
+                        "Authorization": f"Bearer {st.session_state.groq_key}",
+                        "Content-Type": "application/json"
+                    }
                     system_prompt = """You are a friendly English communication coach helping Hindi speakers.
 
 The user spoke in Hindi. Their speech was translated to English. Give them better ways to say the same thing.
@@ -511,7 +514,7 @@ Formal: [formal version]
 Tip: [one short sentence tip about why these sound better]"""
 
                     payload = {
-                        "model": "gpt-4o",
+                        "model": "llama3-70b-8192",
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": f'Hindi speech translated to: "{translated}"\nProvide better English versions.'}
@@ -520,10 +523,15 @@ Tip: [one short sentence tip about why these sound better]"""
                         "temperature": 0.7
                     }
 
-                    resp2 = httpx.post("https://api.openai.com/v1/chat/completions", headers=headers_oai, json=payload, timeout=30)
+                    resp2 = httpx.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers=headers_groq,
+                        json=payload,
+                        timeout=30
+                    )
 
                     if resp2.status_code != 200:
-                        st.error(f"OpenAI error: {resp2.text}")
+                        st.error(f"Groq error: {resp2.text}")
                         st.stop()
 
                     suggestion_text = resp2.json()["choices"][0]["message"]["content"]
