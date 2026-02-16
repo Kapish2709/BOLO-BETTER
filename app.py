@@ -514,7 +514,7 @@ Formal: [formal version]
 Tip: [one short sentence tip about why these sound better]"""
 
                     payload = {
-                        "model": "llama3-70b-8192",
+                        "model": "llama-3.3-70b-versatile",
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": f'Hindi speech translated to: "{translated}"\nProvide better English versions.'}
