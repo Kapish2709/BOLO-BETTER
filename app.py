@@ -180,6 +180,20 @@ if "current_result" not in st.session_state:
 if "api_keys_set" not in st.session_state:
     st.session_state.api_keys_set = False
 
+# ── AUTO-LOAD KEYS FROM STREAMLIT SECRETS ──
+# If secrets are saved in Streamlit Cloud, load them automatically
+# so users never have to type them manually
+try:
+    _sarvam_secret = st.secrets.get("SARVAM_API_KEY", "")
+    _openai_secret = st.secrets.get("OPENAI_API_KEY", "")
+    if _sarvam_secret and _openai_secret:
+        st.session_state.sarvam_key = _sarvam_secret
+        st.session_state.openai_key = _openai_secret
+        st.session_state.api_keys_set = True
+        st.session_state.keys_from_secrets = True
+except Exception:
+    st.session_state.keys_from_secrets = False
+
 
 # ── SIDEBAR ──
 with st.sidebar:
@@ -194,18 +208,24 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("#### 🔑 API Keys")
-    sarvam_key = st.text_input("Sarvam AI Key", type="password", placeholder="sk_...", help="Get from dashboard.sarvam.ai")
-    openai_key = st.text_input("OpenAI Key", type="password", placeholder="sk-proj-...", help="Get from platform.openai.com/api-keys")
-
-    if sarvam_key and openai_key:
-        st.session_state.sarvam_key = sarvam_key
-        st.session_state.openai_key = openai_key
-        st.session_state.api_keys_set = True
-        st.success("Keys saved ✓")
+    # Only show key input boxes if secrets are NOT already loaded
+    if st.session_state.get("keys_from_secrets"):
+        st.markdown("#### 🔑 API Keys")
+        st.success("Keys loaded from secrets ✓")
+        st.caption("Your API keys are saved securely in Streamlit settings.")
     else:
-        st.session_state.api_keys_set = False
-        st.warning("Enter both keys to start")
+        st.markdown("#### 🔑 API Keys")
+        sarvam_key = st.text_input("Sarvam AI Key", type="password", placeholder="sk_...", help="Get from dashboard.sarvam.ai")
+        openai_key = st.text_input("OpenAI Key", type="password", placeholder="sk-proj-...", help="Get from platform.openai.com/api-keys")
+
+        if sarvam_key and openai_key:
+            st.session_state.sarvam_key = sarvam_key
+            st.session_state.openai_key = openai_key
+            st.session_state.api_keys_set = True
+            st.success("Keys saved ✓")
+        else:
+            st.session_state.api_keys_set = False
+            st.warning("Enter both keys to start")
 
     st.divider()
 
